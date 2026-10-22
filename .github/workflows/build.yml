@@ -1,1 +1,43 @@
+name: Build APK
 
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build APK
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Collect APK
+        run: cp app/build/outputs/apk/release/app-release.apk gemini-exporter.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gemini-exporter-apk
+          path: gemini-exporter.apk
+
+      # A release gives a plain download link that works from a phone.
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v1.0.${{ github.run_number }}
+        run: |
+          gh release create "$TAG" gemini-exporter.apk \
+            --target "$GITHUB_SHA" \
+            --title "Gemini Exporter $TAG" \
+            --notes "Сборка из ветки ${GITHUB_REF_NAME} (${GITHUB_SHA::7}). Скачайте gemini-exporter.apk и установите на телефон."
